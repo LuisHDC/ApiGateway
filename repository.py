@@ -8,14 +8,19 @@ def getAllPedidos():
     cursor.execute("""
             SELECT * FROM Pedido
     """)
-    pedidos = []
 
-    for record in cursor.fetchall():
-        pedidos.append(record)
+    colunas = [descricao[0] for descricao in cursor.description]
+
+    resultado = []
+    for linha in cursor.fetchall():
+        linha_dict = {}
+        for i, coluna in enumerate(colunas):
+            linha_dict[coluna] = linha[i]
+        resultado.append(linha_dict)
 
     conn.close()
 
-    return pedidos
+    return resultado
 
 def getPedido(numero):
     conn = sqlite3.connect('pedidos.db')
@@ -26,14 +31,18 @@ def getPedido(numero):
             WHERE numero = ?
     """, (numero))
 
-    pedido = []
+    colunas = [descricao[0] for descricao in cursor.description]
 
-    for record in cursor.fetchall():
-        pedido.append(record)
+    resultado = []
+    for linha in cursor.fetchall():
+        linha_dict = {}
+        for i, coluna in enumerate(colunas):
+            linha_dict[coluna] = linha[i]
+        resultado.append(linha_dict)
 
     conn.close()
-    
-    return pedido
+
+    return resultado
 
 def insertPedido(pedido):
     conn = sqlite3.connect('pedidos.db')
@@ -90,37 +99,56 @@ def get_next_itemPedido_id():
 def get_item_pedido(numero):
     data = getPedido(numero)
 
-    itensPedido = []
-    json_response = []
-    columnNames = []
+    if data:
+        conn = sqlite3.connect('pedidos.db')
+        cursor = conn.cursor()
 
-    for record in data:
-        itensPedido.append(record)
+        cursor.execute("""
+            SELECT * FROM ItemPedido
+            WHERE numero = ?
+        """, (numero))
+        colunas = [descricao[0] for descricao in cursor.description]
 
-    for record in data.description:
-        columnNames.append(record)
+        resultado = []
+        for linha in cursor.fetchall():
+            linha_dict = {}
+            for i, coluna in enumerate(colunas):
+                linha_dict[coluna] = linha[i]
+            resultado.append(linha_dict)
 
-    for i in range(len(itensPedido)):
-        dictionary = dict()
-        for j in range(len(columnNames)):
-            dictionary[columnNames[j-1][0]] = itensPedido[i-1][j-1]
-        
-        json_response.append(dictionary)
+        return resultado
+    else:
+        return {"erro": "O numero de pedido {numero} nao existe!"}
     
-    return json_response
-
 def insertItemPedido(numero, itemPedido):
     conn = sqlite3.connect('pedidos.db')
     cursor = conn.cursor()
     
     data = getPedido(numero)
-    print(itemPedido)
-    if (data.count() > 0):
+
+    if (validateJson(itemPedido.keys()) is not True):
+        return {"erro":"É necessário adicionar todos os atributos: CodigoSKU, Produto, Preco e Quantidade."}
+
+    if data:
         nextId = get_next_itemPedido_id()
         cursor.execute("""
-            INSERT INTO ItemPedido
+            INSERT INTO ItemPedido (Id, Numero, Indice, CodigoSKU, Produto, Preco, Quantidade)
             VALUES(?, ?, ?, ?, ?, ?, ?)
-        """, (nextId, numero, ))
+        """, (nextId, numero, nextId, itemPedido["codigosku"], itemPedido["produto"], itemPedido["preco"], itemPedido["quantidade"]))
+
+        conn.commit()
+
+        conn.close()
+
+        return {}
+    else:
+        conn.close()
+        return {"erro": "O numero de pedido {numero} nao existe!"}
+
+def validateJson(jsonKeys):
+    if "produto" in jsonKeys and "codigosku" in jsonKeys and "preco" in jsonKeys and "quantidade" in jsonKeys:
+        return True
+    return False
 
 def create_tables():
     conn = sqlite3.connect('pedidos.db')
