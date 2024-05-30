@@ -1,76 +1,33 @@
-from flask import Flask, jsonify, request, url_for
-from flask_login import LoginManager, UserMixin, login_required, login_user, logout_user
-import sqlite3
-import subprocess
+import os
+from flask import Flask, jsonify, request
 import repository
-import json
 
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_api_gateway_123'
 
-login_manager = LoginManager()
-login_manager.init_app(app)
+repository.create_tables()
+repository.populate_tables()
 
-class Usuario(UserMixin):
-    def __init__(self, id):
-        self.id = id
-
-@login_manager.user_loader
-def load_user(user_id):
-    return Usuario(user_id)
-
-@app.get('/login')
-def loginUser():
-    user = Usuario(1)
-    login_user(user)
-    return 'Autenticado com sucesso'
-
-@app.route('/logout')
-@login_required
-def logoutUser():
-    logout_user()
-    return 'Deslogado com sucesso'
-
-
-
-@app.route('/transformaPayload', methods=['POST'])
-def transformacao():
-    if request.json:
-        novo_payload = transformar(request.json)
-        return jsonify(novo_payload)
-    else:
-        return 'Nenhum payload JSON encontrado', 400
-
-def transformar(payload):
-    # Implemente sua lógica de transformação aqui
-    return {k.lower(): v for k, v in payload.items()}
-
-
-@app.get('/pedido')
-@login_required
+@app.get('/api/v1/pedido')
 def pedido_get():
     return repository.getAllPedidos()
 
-@app.route('/pedido/<numero>', methods=['GET'])
-@login_required
+@app.route('/api/v1/pedido/<numero>', methods=['GET'])
 def get_pedido(numero):
     return repository.getPedido(numero)
 
-@app.route('/pedido/', methods=['POST'])
-@login_required
+@app.route('/api/v1/pedido', methods=['POST'])
 def insert_pedido():
     data = request.get_json()
     response = repository.insertPedido(data)
 
-    return jsonify(success=response)
+    return jsonify(success="O cliente " + data["cliente"] + " foi adicionado com sucesso!" )
 
-@app.route('/pedido/<numero>/item', methods=['GET'])
-@login_required
+@app.route('/api/v1/pedido/<numero>/item', methods=['GET'])
 def get_item_pedido(numero):
     return jsonify(repository.get_item_pedido(numero))
 
-@app.route('/pedido/<numero>/item', methods=['POST'])
-@login_required
+@app.route('/api/v1/pedido/<numero>/item', methods=['POST'])
 def insert_item_pedido(numero): 
     data = request.get_json()
 
@@ -79,8 +36,10 @@ def insert_item_pedido(numero):
     if "erro" in response:
         return jsonify(failure=response["erro"])
     
-    return jsonify(success=True)
+    return jsonify(success="O Produto " + data["produto"] + " foi adicionado com sucesso ao pedido de numero " + numero + "!")
 
 
 
-app.run()
+app.run(host='0.0.0.0', port=5000)
+
+os.remove('./pedidos.db')

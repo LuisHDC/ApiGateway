@@ -212,8 +212,3 @@ def populate_tables():
     conn.commit()
 
     conn.close()
-
-
-create_tables()
-populate_tables()
-getAllPedidos()
